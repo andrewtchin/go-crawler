@@ -1,12 +1,14 @@
 package main
 
 import (
+	"container/list"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	//"regexp"
+	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -26,22 +28,26 @@ func Crawl(url string, depth int, visited map[string]bool, wg *sync.WaitGroup) {
 		return
 	}
 
-	body, urls, err := Fetch(url)
+	_, urls, err := Fetch(url)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Printf("found: %s %q %s\n", url, body, url_hash_hex)
-	visited[url_hash_hex] = true
-
-	for _, u := range urls {
-		wg.Add(1)
-		go func(the_url string) {
-			defer wg.Done()
-			Crawl(the_url, depth-1, visited, wg)
-		}(u)
+	fmt.Printf("found: %s %s\n", url, url_hash_hex)
+	for e := urls.Front(); e != nil; e = e.Next() {
+		fmt.Println(e.Value)
 	}
+	visited[url_hash_hex] = true
+	/*
+		for _, u := range urls {
+			wg.Add(1)
+			go func(the_url string) {
+				defer wg.Done()
+				Crawl(the_url, depth-1, visited, wg)
+			}(u)
+		}
+	*/
 	return
 }
 
@@ -57,7 +63,7 @@ type httpResult struct {
 	urls []string
 }
 
-func Fetch(url string) (string, []string, error) {
+func Fetch(url string) (string, *list.List, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println(err)
@@ -72,21 +78,40 @@ func Fetch(url string) (string, []string, error) {
 	}
 	// get response body as string
 	resp_body := string(body[:body_len])
-	GetLinks(resp_body)
-	return "", nil, fmt.Errorf("not found: %s", url)
+	links := GetLinks(url, resp_body, body_len)
+	return "", links, nil
 }
 
-func GetLinks(body string) []string {
-	fmt.Println("body", body)
-	links := []string{}
+//func GetLinks(body []byte, body_len int64) []string {
+func GetLinks(url string, body string, body_len int64) *list.List {
+	links := list.New()
+	if strings.HasSuffix(url, "/") {
+		// strip trailing slash
+		url = url[0 : len(url)-1]
+	}
+	re := regexp.MustCompile(`<a\s+(?:[^>]*?\s+)?href="([^"]*)"`)
+	r2 := re.FindAllStringSubmatch(body, -1)
+
+	for _, m := range r2 {
+		fmt.Printf("%s\n", m[1])
+		if strings.HasPrefix(m[1], "//") {
+			url_value := "http:"
+			url_value += m[1]
+			fmt.Println("->", url_value)
+			links.PushBack(url_value)
+		} else if strings.HasPrefix(m[1], "/") {
+			url_value := url
+			url_value += m[1]
+			fmt.Println("->", url_value)
+			links.PushBack(url_value)
+		} else if strings.HasPrefix(m[1], "#") {
+			fmt.Println("skip", m[1])
+		} else {
+			fmt.Println("ok", m[1])
+			links.PushBack(m[1])
+
+		}
+	}
+
 	return links
 }
-
-/*
-func (f fakeFetcher) Fetch(url string) (string, []string, error) {
-	if res, ok := f[url]; ok {
-		return res.body, res.urls, nil
-	}
-	return "", nil, fmt.Errorf("not found: %s", url)
-}
-*/
