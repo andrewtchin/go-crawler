@@ -33,21 +33,18 @@ func Crawl(url string, depth int, visited map[string]bool, wg *sync.WaitGroup) {
 		fmt.Println(err)
 		return
 	}
-
-	fmt.Printf("found: %s %s\n", url, url_hash_hex)
-	for e := urls.Front(); e != nil; e = e.Next() {
-		fmt.Println(e.Value)
-	}
 	visited[url_hash_hex] = true
-	/*
-		for _, u := range urls {
-			wg.Add(1)
-			go func(the_url string) {
-				defer wg.Done()
-				Crawl(the_url, depth-1, visited, wg)
-			}(u)
-		}
-	*/
+	fmt.Printf("links found on page: %s %s\n", url, url_hash_hex)
+
+	for e := urls.Front(); e != nil; e = e.Next() {
+		u := e.Value.(string)
+		fmt.Printf("-- %s\n", u)
+		wg.Add(1)
+		go func(the_url string) {
+			defer wg.Done()
+			Crawl(the_url, depth-1, visited, wg)
+		}(u)
+	}
 	return
 }
 
@@ -64,6 +61,7 @@ type httpResult struct {
 }
 
 func Fetch(url string) (string, *list.List, error) {
+	fmt.Printf("Fetch %s\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println(err)
@@ -82,7 +80,6 @@ func Fetch(url string) (string, *list.List, error) {
 	return "", links, nil
 }
 
-//func GetLinks(body []byte, body_len int64) []string {
 func GetLinks(url string, body string, body_len int64) *list.List {
 	links := list.New()
 	if strings.HasSuffix(url, "/") {
@@ -93,21 +90,21 @@ func GetLinks(url string, body string, body_len int64) *list.List {
 	r2 := re.FindAllStringSubmatch(body, -1)
 
 	for _, m := range r2 {
-		fmt.Printf("%s\n", m[1])
+		// fmt.Printf("%s\n", m[1])
 		if strings.HasPrefix(m[1], "//") {
 			url_value := "http:"
 			url_value += m[1]
-			fmt.Println("->", url_value)
+			// fmt.Println("->", url_value)
 			links.PushBack(url_value)
 		} else if strings.HasPrefix(m[1], "/") {
 			url_value := url
 			url_value += m[1]
-			fmt.Println("->", url_value)
+			// fmt.Println("->", url_value)
 			links.PushBack(url_value)
 		} else if strings.HasPrefix(m[1], "#") {
-			fmt.Println("skip", m[1])
+			// fmt.Println("skip", m[1])
 		} else {
-			fmt.Println("ok", m[1])
+			// fmt.Println("ok", m[1])
 			links.PushBack(m[1])
 
 		}
