@@ -14,12 +14,10 @@ import (
 
 // Crawl pages starting with url, to a maximum of depth.
 func Crawl(url string, depth int, visited map[string]bool, wg *sync.WaitGroup) {
-
-	fmt.Printf("Crawl %s\n", url)
 	if depth <= 0 {
-		fmt.Println("depth 0")
 		return
 	}
+	fmt.Printf("Crawl %s\n", url)
 
 	url_hash := md5.Sum([]byte(url))
 	url_hash_hex := hex.EncodeToString(url_hash[:])
@@ -48,20 +46,11 @@ func Crawl(url string, depth int, visited map[string]bool, wg *sync.WaitGroup) {
 	return
 }
 
-func main() {
-	var wg sync.WaitGroup
-	var visited = make(map[string]bool)
-	Crawl("http://golang.org/", 4, visited, &wg)
-	wg.Wait()
-}
-
-type httpResult struct {
-	body string
-	urls []string
-}
-
 func Fetch(url string) (string, *list.List, error) {
 	fmt.Printf("Fetch %s\n", url)
+	if IsBlacklisted(url) {
+		return "", nil, fmt.Errorf("Skipping blacklisted: %s", url)
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println(err)
@@ -75,9 +64,35 @@ func Fetch(url string) (string, *list.List, error) {
 		return "", nil, fmt.Errorf("not found: %s", url)
 	}
 	// get response body as string
-	resp_body := string(body[:body_len])
+	var resp_body string
+	if body_len > 0 {
+		resp_body = string(body[:body_len])
+	}
+
 	links := GetLinks(url, resp_body, body_len)
 	return "", links, nil
+}
+
+func IsBlacklisted(url string) bool {
+	switch {
+	case strings.HasSuffix(url, ".dmg"):
+		return true
+	case strings.HasSuffix(url, ".exe"):
+		return true
+	case strings.HasSuffix(url, ".msi"):
+		return true
+	case strings.HasSuffix(url, ".pdf"):
+		return true
+	case strings.HasSuffix(url, ".pkg"):
+		return true
+	case strings.HasSuffix(url, ".tar.gz"):
+		return true
+	case strings.HasSuffix(url, ".zip"):
+		return true
+	case strings.HasPrefix(url, "mailto:"):
+		return true
+	}
+	return false
 }
 
 func GetLinks(url string, body string, body_len int64) *list.List {
@@ -109,6 +124,12 @@ func GetLinks(url string, body string, body_len int64) *list.List {
 
 		}
 	}
-
 	return links
+}
+
+func main() {
+	var wg sync.WaitGroup
+	var visited = make(map[string]bool)
+	Crawl("http://andrewtchin.com/", 3, visited, &wg)
+	wg.Wait()
 }
