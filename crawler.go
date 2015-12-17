@@ -74,23 +74,19 @@ func Fetch(url string) (string, *list.List, error) {
 }
 
 func IsBlacklisted(url string) bool {
-	switch {
-	case strings.HasSuffix(url, ".dmg"):
-		return true
-	case strings.HasSuffix(url, ".exe"):
-		return true
-	case strings.HasSuffix(url, ".msi"):
-		return true
-	case strings.HasSuffix(url, ".pdf"):
-		return true
-	case strings.HasSuffix(url, ".pkg"):
-		return true
-	case strings.HasSuffix(url, ".tar.gz"):
-		return true
-	case strings.HasSuffix(url, ".zip"):
-		return true
-	case strings.HasPrefix(url, "mailto:"):
-		return true
+	suffixes := []string{".dmg", ".exe", ".msi",
+		".pdf", ".pkg", ".tar.gz", ".zip"}
+	prefixes := []string{"mailto:"}
+
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(url, suffix) {
+			return true
+		}
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(url, prefix) {
+			return true
+		}
 	}
 	return false
 }
